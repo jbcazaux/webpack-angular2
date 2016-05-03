@@ -1,0 +1,10 @@
+{
+  "name": "webpack-fun",
+  "version": "0.0.1",
+  "description": "test of webpack",
+  "author": "jbcazaux",
+  "devDependencies": {
+    "webpack": "^1.13.0",
+    "webpack-dev-server": "^1.14.1"
+  }
+}
