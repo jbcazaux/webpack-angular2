@@ -4,6 +4,7 @@
   "description": "test of webpack",
   "author": "jbcazaux",
   "devDependencies": {
+    "html-webpack-plugin": "^2.16.1",
     "webpack": "^1.13.0",
     "webpack-dev-server": "^1.14.1"
   }
