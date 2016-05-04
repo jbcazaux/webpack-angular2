@@ -1,6 +1,12 @@
+var webpack = require("webpack")
+
 module.exports = {
-  entry: './src/main.js',
+  entry: {
+    main: "./src/main.js"
+  },
+
   output: {
-    filename: './dist/bundle.js'
+    filename: '[name].js',
+    path: __dirname + '/dist'
   }
-};
+}
