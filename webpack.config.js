@@ -1,8 +1,12 @@
-var webpack = require("webpack")
+var webpack = require("webpack");
+
 
 module.exports = {
   entry: {
-    main: "./src/main.js"
+      main: [
+          './src/hello.js',
+          './src/goodbye.js'
+      ]
   },
 
   output: {
