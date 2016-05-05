@@ -1,3 +1,6 @@
+var greetings = require("greetings.js");
+
 window.onload = function () {
-    document.write(hello("world !"));
+    document.write(greetings.hello("world !!"))
 };
+
