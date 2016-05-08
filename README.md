@@ -126,3 +126,16 @@ module.exports = {
 6. Comme nous avons créé un module (`onload.js`), il faut déclarer à webpack les répertoires où ces modules se trouvent. Evidemment il y a le répertoire `node_modules` et bien sûr notre répertoire `src` où sont nos modules. La ligne `extensions` permet de déclarer les extensions des fichiers contenant des modules.
 7. Enfin, dans la partie `plugins` du fichier, nous allons utiliser ce fameux plugin qui va ajouter les sources JS au fichier html. Par défaut, tous les fichiers JS générés (ces fameux *chunks*), sont ajoutés au fichier html. Ici nous aurons donc un import de main.js dans notre index.html généré. La ligne `inject: body` indique simplement là où les imports js sont injectés.
 
+Et ceci ne va encore pas fonctionner. En effet nous utilisons des plugins (`path` et `HtmlWebpackPlugin`), mais nous ne les avons pas chargés dans les dépendances du projet. Alors ce n'est pas nécessaire pour le plugin path, qui est déjà chargé par ailleurs, mais c'est nécessaire pour l'autre. Le fichier package.json est complété par:
+```json
+"devDependencies": {
+    "html-webpack-plugin": "^2.16.1", //la nouvelle dépendance
+    "webpack": "^1.13.0",
+    "webpack-dev-server": "^1.14.1"
+  }
+```
+Un petit coup de `npm install` puis de `webpack` et c'est parti. Dans le répertoire `dist` il devrait y avoir les fichiers 
+- `main.js` avec le code de `onload.js` et `greetings.js`
+- `index.html` avec l'import de `main.js`
+ 
+Pour voir si tout cela fonctionne, on peut lancer `webpack-dev-server` et se connecter avec un navigateur sur localhost:8080
