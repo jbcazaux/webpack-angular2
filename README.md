@@ -158,8 +158,8 @@ Cette fois ci c'est la dernière: Imaginons que nous ayons une dizaine de pages,
 Les différentes optimisations que webpack propose consistent donc en:
 - Charger d'un coup (dans un seul et même fichier) tous les scripts qui sont nécessaires à une vue (ou à une page, si le site n'est pas une single page app).
 - Extraire dans un fichier du code commun entre plusieurs pages (ou vues)
-- Décider automatiquement suivant la taille du fichier (*chunk*) ou le nombre de pages dans lesquelles il (le *chunk*) est utilisé, si cela vaut le coût de créer ce *chunk*.
 - Charger à la demande (et donc pas dès le chargement de la page) un module (en fait le *chunk* contenant le code du module).
+- Décider automatiquement suivant la taille du fichier (*chunk*) ou le nombre de pages dans lesquelles il (le *chunk*) est utilisé, si cela vaut le coût de créer ce *chunk*.
 
 
 ### Mettre tous les scripts JS dans un seul *chunk*
@@ -248,3 +248,61 @@ Nous nous attendons à avoir de généré:
 - un fichier commons.js, avec la méthode `hello`
 
 En effet le code commun entre les chunks *main* et *calc* est simplement le module greetings avec sa méthode `hello`. 
+
+### Charger un module à la demande
+
+Comme nous l'avons vu, afin d'accélérer l'affichage de la page, il peut être intéressant de ne charger que les modules immédiatement nécessaires. Les autres étant chargés à la demande, lorsque l'application en a besoin.
+Pour faire ceci, il suffit de rajouter la ligne `require.ensure(['module1', 'module2', ...]), callback)` dans les fichiers JS, à l'endroit où les modules sont nécessaires.
+
+Transformons simplement le fichier `onload.js` pour ne charger le module greetings que lorsque nous allons nous en servir.
+onload.js:
+```javascript
+require.ensure(['greetings.js'], function (require) {
+    var greetings = require('greetings.js');
+    window.onload = function () {
+        document.write(greetings.hello("world !!"))
+    };
+});
+```
+En fait ici nous voyons bien que le module `greetings.js` sera chargé dès que le script sera lu, peu importe. Nous aurions aussi pu déclencher ce code lors du clic sur un bouton.
+Il va également falloir modifier le fichier de configuration de webpack. Pour démontrer le fonctionnement, il faudra faire 2 choses:
+1. Ne pas mettre les modules `greetings.js` et `onload.js` dans le même *chunk*.
+2. Ne pas charger le fichier contenant le module `greetings.js` dans le `index.html`
+
+webpack.config.js:
+```javascript
+var webpack = require("webpack");
+var HtmlWebpackPlugin = require('html-webpack-plugin');
+var path = require('path');
+
+module.exports = {
+    entry: {
+        main: [
+            './src/onload.js',
+        ],
+        greetings: [
+            './src/greetings.js'
+        ]
+    },
+
+    output: {
+        filename: '[name].js',
+        path: path.resolve(__dirname, 'dist')
+    },
+
+    resolve: {
+        root: [path.resolve(__dirname, 'src'), path.resolve(__dirname, 'node_modules')],
+        extensions: ['', '.js']
+    },
+
+    plugins: [
+        new HtmlWebpackPlugin({
+            chunks: ['main'],
+            template: './src/index.html',
+            inject: 'body'
+        })
+    ]
+};
+```
+Pour faciliter les choses, les fichiers `onload.js` et `greetings.js` sont dans 2 points d'entrée différents, et du coup 2 *chunks* différents. Ensuite pour n'inclure que le fichier `onload.js` dans le `index.html` nous rajoutons la ligne `chunks: ['main']`.
+Dans le debugger JS du navigateur (après avoir lancé `webpack-dev-server` et un navigateur sur localhost:8080) on peut voir qu'au chargement de la page, seul le script main.js est chargé, puis si on déroule jusqu'après la ligne ` var greetings = __webpack_require__(1);`, on se rend compte qu'un nouveau fichier JS est chargé, avec dedans le code de `greetings.js`
