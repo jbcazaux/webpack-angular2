@@ -81,7 +81,7 @@ src/index.html
 ### Fichier de configuration de webpack
 En l'état pas grand chose ne va fonctionner. Le fichier html ne charge aucun des fichiers JS.
 On a plusieurs solutions pour faire fonctionner le tout. Déjà on aurait pu ne pas utiliser les modules (sans `module.exports` ni `require`) et déclarer la méthode `hello` dans le scope de `window`, puis charger à la main les 2 fichiers JS.
-Bon cette approche est un peu old school et c'est précisemment ce que nous cherchons à éviter avec l'utilisation de webpack.
+Bon cette approche est un peu "old school" et c'est précisemment ce que nous cherchons à éviter avec l'utilisation de webpack.
 La solution viable est donc de laisser à webpack le soin d'ajouter les fichiers JS nécessaires.
 
 webpack.config.js:
@@ -140,23 +140,111 @@ Un petit coup de `npm install` puis de `webpack` et c'est parti. Dans le répert
  
 Pour voir si tout cela fonctionne, on peut lancer `webpack-dev-server` et se connecter avec un navigateur sur localhost:8080
 
-## Optimisation
+## Optimisations
 
 Jusque là rien d'extraordinaire. 
-Cependant webpack permet de faire beaucoup mieux. Plutot que de charger tous les fichiers JS d'une page dès le début (ce qui peut être long dans le cas d'une single page app), il serait intéressant de ne charger que le strict minimum pour avoir un premier rendu le plus rapidement possible, puis ne charger que les autres scripts JS quand il y en a réellement besoin.
+Cependant webpack permet de faire beaucoup mieux. 
+Plutôt que de charger tous les fichiers JS d'une page dès le début (ce qui peut être long dans le cas d'une single page app), il serait intéressant de ne charger que le strict minimum pour avoir un premier rendu le plus rapidement possible, puis ne charger que les autres scripts JS quand il y en a réellement besoin.
+Imaginons que la page A ait besoin des modules m1 et m2 pour s'afficher, mais que le module m3 ne serve qu'à afficher une fonctionnalité accessible via un clic et dont seulement 10% des utilisateurs se servent. Ne serait-ce pas mieux que ne charger m3 à la demande ? Ainsi 100% des utilisateurs verront leur page A s'afficher plus vite, et 10% attendront un petit peu avant de voir la fonctionnalité de m3 arriver sur leur écran (le temps de charger m3).
 
 Mais si plusieurs pages (ou vues) de l'application utilisent des librairies communes (comme jquery), c'est idiot d'inclure jquery dans tous les fichiers (*chunks*) où il y en a besoin. Cela ferait grossir les fichiers et télécharger plusieurs fois jquery (une fois par point d'entrée de l'application). La solution est donc de créer des *chunks* regroupant le code commun à plusieurs pages. Ainsi on aura par exemple dans notre `index.html` l'import du *chunk* contenant *jquery* et *underscore*, puis l'import du *chunk* contenant les scripts JS pour notre point d'entrée *main*. 
 
 Webpack va nous aider à déterminer quel est le code commun entre plusieurs points d'entrée (ou pages). Par exemple si la page A a besoin des modules m1, m2, m3 et la page B des modules m1, m2 et m4. Alors le code commun entre les 2 pages sera m1 et m2. Il peut donc être intéressant de créer un *chunk* contenant m1 et m2, de charger ce *chunk* dans pageA.html et pageB.html.Ainsi, si l'utilisateur commence par naviguer sur la page A il va télécharger le *chunk* avec m1 et m2, et un chunk avec m3. Puis quand il passe sur la page B, il aura déjà en cache le *chunk* avec m1 et m2, et il n'aura plus qu'à télécharger le *chunk* avec m4. Simple non ?
 
-Allez on peut encore faire mieux ! Imaginons que la page A ait besoin des modules m1 et m2 pour s'afficher, mais que le module m3 ne serve qu'à afficher une fonctionnalité accessible via un clic et dont seulement 10% des utilisateurs se servent. Ne serait-ce pas mieux que ne charger m3 à la demande ? Ainsi 100% des utilisateurs verront leur page A s'afficher plus vite, et 10% attendront un petit peu avant de voir la fonctionnalité de m3 arriver sur leur écran (le temps de charger m3).
-
 Encore un peu de bon sens ? Imaginons maintenant que m1 et m2 soient des modules ridiculement petits en taille de code. Est il vraiment optimisé de charger, par exemple pour la page A, le *chunk* avec m1 et m2 ? Qu'en est il de la latence réseau ? Du nombre maximum de fichiers (jss, css, ...) que le navigateur peur charger en même temps ? Parfois il sera préférable de mettre m1,m2 et m3 dans le même *chunk*, puis de créer un 2ème *chunk* pour la page B contenant m1,m2, m4.
 
-Cette fois ci c'est la dernière: Imaginonsn que nous ayons une dizaine de pages, Toutes les pages ont les modules m1 et m2 en commun, mais seules les pages A et F ont le module m3 en commun. Est il vraiment optimisé de créer un *chunk* avec ce module m3 ? Comme pour le point précédent, il faut se poser la question du coût de télécharher un fichier supplémentaire (latence, maximum de téléchargements concurents, ...).
+Cette fois ci c'est la dernière: Imaginons que nous ayons une dizaine de pages, Toutes les pages ont les modules m1 et m2 en commun, mais seules les pages A et F ont le module m3 en commun. Est il vraiment optimisé de créer un *chunk* avec ce module m3 ? Comme pour le point précédent, il faut se poser la question du coût de télécharher un fichier supplémentaire (latence, maximum de téléchargements concurents, ...).
 
 Les différentes optimisations que webpack propose consistent donc en:
 - Charger d'un coup (dans un seul et même fichier) tous les scripts qui sont nécessaires à une vue (ou à une page, si le site n'est pas une single page app).
 - Extraire dans un fichier du code commun entre plusieurs pages (ou vues)
 - Décider automatiquement suivant la taille du fichier (*chunk*) ou le nombre de pages dans lesquelles il (le *chunk*) est utilisé, si cela vaut le coût de créer ce *chunk*.
 - Charger à la demande (et donc pas dès le chargement de la page) un module (en fait le *chunk* contenant le code du module).
+
+
+### Mettre tous les scripts JS dans un seul *chunk*
+
+C'est ce que nous avons vu avant, il suffit de déclarer tous les fichiers JS devant être regroupés, dans un entry. Par exemple si on met ceci dans le fichier de config *webpack*
+```javascript
+entry: {
+        main: [
+            './src/module1.js',
+            './src/module2.js'
+            './src/module3.js'
+        ], ...
+```
+webpack en fera un fichier main.js qui contiendra tous les fichiers déclarés. Le main.js sera ajouté dans l'index.html toujours grâce au plugin *HtmlWebpackPlugin*.
+
+### Code commun (*chunk*) entre plusieurs plusieurs pages
+
+Nous allons utiliser le plugin CommonsChunkPlugin pour faire ceci. C'est plutôt simple, il suffit d'indiquer les différents 'entries' dont il faut extraire le code en commun.
+Pour cet exemple, nous devons rajouter un peu de code. Dans `./src`, nous avons toujours le point d'entrée *main* qui charge les fichiers `onload.js` et `greetings.js`. Nous allons rajouter le fichier `greetings-calc.js`, qui est un module qui se base lui même sur le module `greetings`.
+
+greetings.js:
+```javascript
+module.exports = {
+
+    hello: function (name) {
+        return "hello " + name;
+    }
+};
+```
+onload.js:
+```javascript
+var greetings = require("greetings.js");
+window.onload = function () {
+    document.write(greetings.hello("world !!"))
+};
+```
+greetings-calc.js:
+```javascript
+var g = require('greetings.js');
+module.exports = {
+    add: function(a, b) {
+        return a + b;
+    },
+    niceAdd: function (a, b, name) {
+        return g.hello(name) + ', the result of ' + a + ' + ' + b + ' is ' + add(a, b);
+    }  
+};
+```
+Avec la configuration suivante:
+```javascript
+entry: {
+        main: [
+            './src/greetings.js',
+            './src/onload.js'
+        ],
+        calc: [
+            './src/greetings-calc.js'
+        ]
+    },
+
+    output: {
+        filename: '[name].js',
+        path: path.resolve(__dirname, 'dist')
+    },
+
+    resolve: {
+        root: [path.resolve(__dirname, 'src'), path.resolve(__dirname, 'node_modules')],
+        extensions: ['', '.js']
+    },
+
+    plugins: [
+        new HtmlWebpackPlugin({
+            template: './src/index.html',
+            inject: 'body'
+        }),
+        new webpack.optimize.CommonsChunkPlugin({
+            name: 'commons',
+            filename: 'commons.js',
+            chunks: ['main', 'calc']
+        })
+    ]
+```
+Nous nous attendons à avoir de généré: 
+- un fichier main.js avec seulement la méthode `onload` de définie.
+- un fichier calc.js avec les méthodes `add` et `niceAdd`
+- un fichier commons.js, avec la méthode `hello`
+
+En effet le code commun entre les chunks *main* et *calc* est simplement le module greetings avec sa méthode `hello`. 
