@@ -252,7 +252,7 @@ En effet le code commun entre les chunks *main* et *calc* est simplement le modu
 ### Charger un module à la demande
 
 Comme nous l'avons vu, afin d'accélérer l'affichage de la page, il peut être intéressant de ne charger que les modules immédiatement nécessaires. Les autres étant chargés à la demande, lorsque l'application en a besoin.
-Pour faire ceci, il suffit de rajouter la ligne `require.ensure(['module1', 'module2', ...]), callback)` dans les fichiers JS, à l'endroit où les modules sont nécessaires.
+Pour faire ceci, il suffit de rajouter la ligne `require.ensure(['module1', 'module2', ...]), callback)` dans les fichiers JS, à l'endroit où les modules doivent être téléchargés dans le navigateur. Il faudra ensuite faire un `require('m1.js')` pour pouvoir les utiliser dans le code.
 
 Transformons simplement le fichier `onload.js` pour ne charger le module greetings que lorsque nous allons nous en servir.
 onload.js:
@@ -306,3 +306,79 @@ module.exports = {
 ```
 Pour faciliter les choses, les fichiers `onload.js` et `greetings.js` sont dans 2 points d'entrée différents, et du coup 2 *chunks* différents. Ensuite pour n'inclure que le fichier `onload.js` dans le `index.html` nous rajoutons la ligne `chunks: ['main']`.
 Dans le debugger JS du navigateur (après avoir lancé `webpack-dev-server` et un navigateur sur localhost:8080) on peut voir qu'au chargement de la page, seul le script main.js est chargé, puis si on déroule jusqu'après la ligne ` var greetings = __webpack_require__(1);`, on se rend compte qu'un nouveau fichier JS est chargé, avec dedans le code de `greetings.js`
+
+### Ne créer un chunk de code commun que si nécessaire
+
+Nous allons créer 3 entry points et donc 3 *chunks*: `main`, `second` et `third`. Dans chacun de ces chunks, nous aurons un fichier JS qui fera un `require('calc.js')`. Si l'on suit notre logique d'optimisation, il serait préférable de charger le code de `calc.js` une fois, plutot que de le retrouver dupliqué dans chacun des chunks. Nous avions vu comment faire cela avec le plugin **CommonsChunkPlugin**.
+Nous avons également vu que suivant la taille du code en commun, il était peut être dommage de devoir télécharger un fichier supplémentaire dès le chargement de la page, si ce fichier n'est pas très gros (on perd en temps de réponse à cause de la latence réseau). La solution est donc d'utiliser l'option minChunks du plugin.
+
+calc.js:
+```javascript
+module.exports = {
+    add: function (a, b) {
+        return a + b;
+    }
+};
+```
+
+greetings-calc.js:
+```javascript
+var greetings = require('greetings.js');
+var calc = require('calc.js');
+
+module.exports = {
+    add: function (a, b, name) {
+        return greetings.hello(name) + ' ' + calc.add(a, b);
+    }
+};
+```
+
+et webpack.config.js:
+```javascript
+var webpack = require("webpack");
+var HtmlWebpackPlugin = require('html-webpack-plugin');
+var path = require('path');
+
+module.exports = {
+    entry: {
+        main: [
+            './src/onload.js',
+            './src/greetings.js',
+            './src/calc.js'
+        ],
+        second: [
+            './src/greetings-calc.js'
+        ],
+        third: [
+            './src/super-calc.js'
+        ]
+    },
+
+    output: {
+        filename: '[name].js',
+        path: path.resolve(__dirname, 'dist')
+    },
+
+    resolve: {
+        root: [path.resolve(__dirname, 'src'), path.resolve(__dirname, 'node_modules')],
+        extensions: ['', '.js']
+    },
+
+    plugins: [
+        new HtmlWebpackPlugin({
+            template: './src/index.html',
+            inject: 'body'
+        }),
+        new webpack.optimize.CommonsChunkPlugin({
+            name:'commons-calc',
+            filename: 'commons-calc.js',
+            chunks: ['main', 'second', 'third'],
+            minChunks: 3
+        })
+    ]
+};
+```
+En lançant la commande `webpack`, on a bien dans le répertoire `dist` un fichier commons-calc.js avec dedans la méthode `add` (le code qui était dans le module `calc.js`).
+Si maintenant on change le `minChunks` à 4, il ne va plus y avoir dans le fichier `commons-calc.js`, parceque seuls 3 chunks ont ce code en commun (et donc pas 4).
+
+## Création des chunks
