@@ -149,7 +149,7 @@ Imaginons que la page A ait besoin des modules m1 et m2 pour s'afficher, mais qu
 
 Mais si plusieurs pages (ou vues) de l'application utilisent des librairies communes (comme jquery), c'est idiot d'inclure jquery dans tous les fichiers (*chunks*) où il y en a besoin. Cela ferait grossir les fichiers et télécharger plusieurs fois jquery (une fois par point d'entrée de l'application). La solution est donc de créer des *chunks* regroupant le code commun à plusieurs pages. Ainsi on aura par exemple dans notre `index.html` l'import du *chunk* contenant *jquery* et *underscore*, puis l'import du *chunk* contenant les scripts JS pour notre point d'entrée *main*. 
 
-Webpack va nous aider à déterminer quel est le code commun entre plusieurs points d'entrée (ou pages). Par exemple si la page A a besoin des modules m1, m2, m3 et la page B des modules m1, m2 et m4. Alors le code commun entre les 2 pages sera m1 et m2. Il peut donc être intéressant de créer un *chunk* contenant m1 et m2, de charger ce *chunk* dans pageA.html et pageB.html.Ainsi, si l'utilisateur commence par naviguer sur la page A il va télécharger le *chunk* avec m1 et m2, et un chunk avec m3. Puis quand il passe sur la page B, il aura déjà en cache le *chunk* avec m1 et m2, et il n'aura plus qu'à télécharger le *chunk* avec m4. Simple non ?
+Webpack va nous aider à déterminer quel est le code commun entre plusieurs points d'entrée (ou pages). Par exemple si la page A a besoin des modules m1, m2, m3 et la page B des modules m1, m2 et m4. Alors le code commun entre les 2 pages sera m1 et m2. Il peut donc être intéressant de créer un *chunk* contenant m1 et m2, de charger ce *chunk* dans pageA.html et pageB.html.Ainsi, si l'utilisateur commence par naviguer sur la page A il va télécharger le *chunk* avec m1 et m2, et un *chunk* avec m3. Puis quand il passe sur la page B, il aura déjà en cache le *chunk* avec m1 et m2, et il n'aura plus qu'à télécharger le *chunk* avec m4. Simple non ?
 
 Encore un peu de bon sens ? Imaginons maintenant que m1 et m2 soient des modules ridiculement petits en taille de code. Est il vraiment optimisé de charger, par exemple pour la page A, le *chunk* avec m1 et m2 ? Qu'en est il de la latence réseau ? Du nombre maximum de fichiers (jss, css, ...) que le navigateur peur charger en même temps ? Parfois il sera préférable de mettre m1,m2 et m3 dans le même *chunk*, puis de créer un 2ème *chunk* pour la page B contenant m1,m2, m4.
 
@@ -247,7 +247,7 @@ Nous nous attendons à avoir de généré:
 - un fichier calc.js avec les méthodes `add` et `niceAdd`
 - un fichier commons.js, avec la méthode `hello`
 
-En effet le code commun entre les chunks *main* et *calc* est simplement le module greetings avec sa méthode `hello`. 
+En effet le code commun entre les *chunks* *main* et *calc* est simplement le module greetings avec sa méthode `hello`. 
 
 ### Charger un module à la demande
 
@@ -307,7 +307,7 @@ module.exports = {
 Pour faciliter les choses, les fichiers `onload.js` et `greetings.js` sont dans 2 points d'entrée différents, et du coup 2 *chunks* différents. Ensuite pour n'inclure que le fichier `onload.js` dans le `index.html` nous rajoutons la ligne `chunks: ['main']`.
 Dans le debugger JS du navigateur (après avoir lancé `webpack-dev-server` et un navigateur sur localhost:8080) on peut voir qu'au chargement de la page, seul le script main.js est chargé, puis si on déroule jusqu'après la ligne ` var greetings = __webpack_require__(1);`, on se rend compte qu'un nouveau fichier JS est chargé, avec dedans le code de `greetings.js`
 
-### Ne créer un chunk de code commun que si nécessaire
+### Ne créer un *chunk* de code commun que si nécessaire
 
 Nous allons créer 3 entry points et donc 3 *chunks*: `main`, `second` et `third`. Dans chacun de ces chunks, nous aurons un fichier JS qui fera un `require('calc.js')`. Si l'on suit notre logique d'optimisation, il serait préférable de charger le code de `calc.js` une fois, plutot que de le retrouver dupliqué dans chacun des chunks. Nous avions vu comment faire cela avec le plugin **CommonsChunkPlugin**.
 Nous avons également vu que suivant la taille du code en commun, il était peut être dommage de devoir télécharger un fichier supplémentaire dès le chargement de la page, si ce fichier n'est pas très gros (on perd en temps de réponse à cause de la latence réseau). La solution est donc d'utiliser l'option minChunks du plugin.
@@ -379,6 +379,18 @@ module.exports = {
 };
 ```
 En lançant la commande `webpack`, on a bien dans le répertoire `dist` un fichier commons-calc.js avec dedans la méthode `add` (le code qui était dans le module `calc.js`).
-Si maintenant on change le `minChunks` à 4, il ne va plus y avoir dans le fichier `commons-calc.js`, parceque seuls 3 chunks ont ce code en commun (et donc pas 4).
+Si maintenant on change le `minChunks` à 4, il ne va plus y avoir dans le fichier `commons-calc.js`, parceque seuls 3 *chunks* ont ce code en commun (et donc pas 4).
 
 ## Création des chunks
+
+Pour créer des *chunks*, nous avons vus 2 possibilités:
+1. Créer des points d'entrée
+2. Créer des *chunks* de code communs entre plusieurs *chunks*.
+
+Il existe une 3ème possibilité. C'est en passant un 3ème paramètre à la méthode `require.ensure(['dependances'], callback, 'chunkname')`. Tous les morceaux de codes présents dans les callbacks des `require.ensure()`, et dont le chunkname est le même, seront déplacés dans un même fichier (*chunk*).
+
+Comme ces chunks ont un nom, il est possible d'utiliser le plugin *CommonsChunkPlugin* pour extraire le code commun entre plusieurs de ces *chunks*.
+Cette approche a l'avantages de pouvoir déclarer des chunks qui ne sont pas des points d'entrée. Ce qui est la majorité des cas dans les applications single page. Cependant, il est difficil d'un seul coup de d'oeil de pouvoir visualiser quels sont les morceaux de code qui seront placés dans le même chunk.
+C'est pour cette raison, que je préfère utiliser les entry points pour déclarer des chunks, mais il faut alors configurer le plugin *HtmlWebpackPlugin* pour qu'il n'inclut dans le index.html que les chunks qui doivent réellement être chargés au démarrage, et pas ceux qui doivent être téléchargés à la demande, lorsqu'une des fonctionalités des l'application le requiert.
+
+## Les loaders 
