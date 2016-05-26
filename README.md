@@ -394,3 +394,104 @@ Cette approche a l'avantages de pouvoir déclarer des chunks qui ne sont pas des
 C'est pour cette raison, que je préfère utiliser les entry points pour déclarer des chunks, mais il faut alors configurer le plugin *HtmlWebpackPlugin* pour qu'il n'inclut dans le index.html que les chunks qui doivent réellement être chargés au démarrage, et pas ceux qui doivent être téléchargés à la demande, lorsqu'une des fonctionalités des l'application le requiert.
 
 ## Les loaders 
+
+Les *loaders* permettent d'effectuer des traitements sur nos fichiers sources. Les cas les plus répandus sont par exemple la transpilation des fichiers typescript en JS, ou la transformation des fichiers scss en css. 
+Comme nous utiliserons Angular2 avec Typescript, nous allons partir de cet exemple.
+
+Tout d'abord il faudra rajouter un fichier de configuration, à la racine du projet, pour indiquer comment transpiler en JS, c'est le fichier tsconfig.json:
+```json
+{
+  "compilerOptions": {
+    "target": "es5",
+    "sourceMap": true,
+    "outDir": "tmp"
+  },
+  "exclude": [
+    "node_modules"
+  ]
+}
+```
+Rien d'extraordinaire. On indique simplement que le format de sortie doit être du JS es5, que l'on veut générer les sourcesMap et enfin que les fichiers générés .js et .js.map soient créés dans un répertoire tmp plutot qu'au même niveau que les fichiers .ts. C'est surtout plus agréable dans l'IDE.
+
+Ensuite on va indique 2 nouvelles dépendances dans le package.json: 
+(on peut aussi lancer `npm install ts-loader --save-dev` et `npm install typescript --save`)
+```json
+{
+  "name": "webpack-fun",
+  "version": "0.0.1",
+  "description": "test of webpack",
+  "author": "jbcazaux",
+  "devDependencies": {
+    "html-webpack-plugin": "^2.16.1",
+    "ts-loader": "^0.8.2",
+    "typescript": "^1.8.10",
+    "webpack": "^1.13.0",
+    "webpack-dev-server": "^1.14.1"
+  },
+  "dependencies": {
+    "typescript": "^1.8.10"
+  }
+}
+
+```
+
+
+webpack.config.js:
+```javascript
+var webpack = require("webpack");
+var HtmlWebpackPlugin = require('html-webpack-plugin');
+var path = require('path');
+
+module.exports = {
+    entry: {
+        main: [
+            './src/greetings.ts'
+        ]
+    },
+
+    output: {
+        filename: '[name].js',
+        path: path.resolve(__dirname, 'dist')
+    },
+
+    resolve: {
+        root: [path.resolve(__dirname, 'src'), path.resolve(__dirname, 'node_modules')],
+        extensions: ['', '.js', '.ts']
+    },
+
+    module: {
+        loaders: [
+            {
+                test: /\.ts$/,
+                loader: 'ts'
+            }
+        ]
+    },
+
+    plugins: [
+        new HtmlWebpackPlugin({
+            template: './src/index.html',
+            inject: 'body'
+        })
+    ]
+};
+```
+
+Et enfin le fichier `greetings.js`:
+
+```typescript
+class Greetings {
+    constructor(public name: string) { }
+    hello() {
+        return "hello " + this.name;
+    }
+};
+
+var g = new Greetings("world");
+
+document.body.innerHTML = g.hello();
+```
+
+Rien de sorcier: les fichiers .ts seront passés dans la moulinette du ts-loader. On est pas obligé d'indiquer le `-loader` dans le nom du loader.
+Un petit coup de `webpack-dev-server` pour constater que l'on a toujours notre page index.html qui charge un main.js, qui contient le code JS généré à partir de notre cote Typescript.
+ 

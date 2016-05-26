@@ -5,7 +5,12 @@
   "author": "jbcazaux",
   "devDependencies": {
     "html-webpack-plugin": "^2.16.1",
+    "ts-loader": "^0.8.2",
+    "typescript": "^1.8.10",
     "webpack": "^1.13.0",
     "webpack-dev-server": "^1.14.1"
+  },
+  "dependencies": {
+    "typescript": "^1.8.10"
   }
 }
