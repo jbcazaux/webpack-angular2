@@ -398,6 +398,8 @@ C'est pour cette raison, que je préfère utiliser les entry points pour déclar
 Les *loaders* permettent d'effectuer des traitements sur nos fichiers sources. Les cas les plus répandus sont par exemple la transpilation des fichiers typescript en JS, ou la transformation des fichiers scss en css. 
 Comme nous utiliserons Angular2 avec Typescript, nous allons partir de cet exemple.
 
+### ts-loader
+
 Tout d'abord il faudra rajouter un fichier de configuration, à la racine du projet, pour indiquer comment transpiler en JS, c'est le fichier tsconfig.json:
 ```json
 {
@@ -413,7 +415,7 @@ Tout d'abord il faudra rajouter un fichier de configuration, à la racine du pro
 ```
 Rien d'extraordinaire. On indique simplement que le format de sortie doit être du JS es5, que l'on veut générer les sourcesMap et enfin que les fichiers générés .js et .js.map soient créés dans un répertoire tmp plutot qu'au même niveau que les fichiers .ts. C'est surtout plus agréable dans l'IDE.
 
-Ensuite on va indique 2 nouvelles dépendances dans le package.json: 
+Ensuite on va indiquer 2 nouvelles dépendances dans le package.json: 
 (on peut aussi lancer `npm install ts-loader --save-dev` et `npm install typescript --save`)
 ```json
 {
@@ -427,9 +429,6 @@ Ensuite on va indique 2 nouvelles dépendances dans le package.json:
     "typescript": "^1.8.10",
     "webpack": "^1.13.0",
     "webpack-dev-server": "^1.14.1"
-  },
-  "dependencies": {
-    "typescript": "^1.8.10"
   }
 }
 
@@ -494,4 +493,106 @@ document.body.innerHTML = g.hello();
 
 Rien de sorcier: les fichiers .ts seront passés dans la moulinette du ts-loader. On est pas obligé d'indiquer le `-loader` dans le nom du loader.
 Un petit coup de `webpack-dev-server` pour constater que l'on a toujours notre page index.html qui charge un main.js, qui contient le code JS généré à partir de notre cote Typescript.
- 
+
+### typings
+
+TODO: explications...
+`npm install typings --save-dev`
+`typings install dt~require --save --global`
+
+```json
+{
+  "name": "webpack-fun",
+  "version": "0.0.1",
+  "description": "test of webpack",
+  "author": "jbcazaux",
+  "devDependencies": {
+    "html-webpack-plugin": "^2.16.1",
+    "ts-loader": "^0.8.2",
+    "typescript": "^1.8.10",
+    "typings": "^1.3.0",
+    "webpack": "^1.13.0",
+    "webpack-dev-server": "^1.14.1"
+  },
+}
+```
+
+### file-loader
+
+Un moment ou à un autre, il va falloir rendre notre application un peu plus sexy, pour cela passons par les images !
+Pour charger les images, il suffit de faire un `require()` dessus, ou bien de les référencer dans une page html, qui elle-même sera chargée par un `require()`. Cela aura plus de sens quand on verra les exemples avec angular2, avec lequel on peut faire un `require()` des templates html depuis les fichiers `.ts`.
+Voyons tout de même un exemple simple: un fichier `.ts` qui référence une image. 
+
+Nous aurons besoin du *file-loader* qui permet de copier les fichiers référencés dans le répertoire de destination, tout en changeant leur nom (pratique pour mettre un cache très long sur les images par exemple).
+(on peut aussi lancer `npm install file-loader --save-dev`)
+```json
+{
+  "name": "webpack-fun",
+  "version": "0.0.1",
+  "description": "test of webpack",
+  "author": "jbcazaux",
+  "devDependencies": {
+    "file-loader": "^0.8.5",
+    "ts-loader": "^0.8.2",
+    "html-webpack-plugin": "^2.16.1",
+    "typescript": "^1.8.10",
+    "webpack": "^1.13.0",
+    "webpack-dev-server": "^1.14.1"
+  }
+}
+```
+Un fichier typescript dans lequel on fait un require de l'image (attention d'avoir bien installé le typing de require):
+```typescript
+class MyImage {
+    greenImageUrl = require("./green.png");
+    displayUrl() {
+        document.body.innerHTML = this.greenImageUrl;
+    }
+};
+
+new MyImage().displayUrl();
+```
+Et enfin le fichier webpack pour configurer le file-loader (ajouter un hash au nom du fichier), et l'*entry point* pour charger le fichier `image.ts`
+```javascript
+var webpack = require("webpack");
+var HtmlWebpackPlugin = require('html-webpack-plugin');
+var path = require('path');
+
+module.exports = {
+    entry: {
+        main: [
+            './src/image.ts'
+        ]
+    },
+
+    output: {
+        filename: '[name].js',
+        path: path.resolve(__dirname, 'dist')
+    },
+
+    resolve: {
+        root: [path.resolve(__dirname, 'src'), path.resolve(__dirname, 'node_modules')],
+        extensions: ['', '.js', '.ts']
+    },
+
+    module: {
+        loaders: [
+            {
+                test: /\.ts$/,
+                loader: 'ts'
+            },
+            {
+                test: /\.(png|jpe?g|gif|svg)$/,
+                loader: 'file?name=[name].[hash].[ext]'
+            }
+        ]
+    },
+
+    plugins: [
+        new HtmlWebpackPlugin({
+            template: './src/index.html',
+            inject: 'body'
+        })
+    ]
+};
+```

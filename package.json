@@ -4,13 +4,12 @@
   "description": "test of webpack",
   "author": "jbcazaux",
   "devDependencies": {
+    "file-loader": "^0.8.5",
     "html-webpack-plugin": "^2.16.1",
     "ts-loader": "^0.8.2",
     "typescript": "^1.8.10",
+    "typings": "^1.3.0",
     "webpack": "^1.13.0",
     "webpack-dev-server": "^1.14.1"
-  },
-  "dependencies": {
-    "typescript": "^1.8.10"
   }
 }

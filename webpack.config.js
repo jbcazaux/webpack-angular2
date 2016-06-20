@@ -5,7 +5,7 @@ var path = require('path');
 module.exports = {
     entry: {
         main: [
-            './src/greetings.ts'
+            './src/image.ts'
         ]
     },
 
@@ -16,14 +16,18 @@ module.exports = {
 
     resolve: {
         root: [path.resolve(__dirname, 'src'), path.resolve(__dirname, 'node_modules')],
-        extensions: ['', '.js', '.ts', '.tsx']
+        extensions: ['', '.js', '.ts']
     },
 
     module: {
         loaders: [
             {
-                test: /\.tsx?$/,
+                test: /\.ts$/,
                 loader: 'ts'
+            },
+            {
+                test: /\.(png|jpe?g|gif|svg)$/,
+                loader: 'file?name=[name].[hash].[ext]'
             }
         ]
     },
